@@ -1,0 +1,952 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.collibra.com/apiv2">
+  <collaboration id="Collaboration">
+    <participant id="feedbackApproval" name="Feedback Approval" processRef="feedbackApprovalProcess"></participant>
+  </collaboration>
+  <process id="feedbackApprovalProcess" name="Feedback Approval" isExecutable="true">
+    <laneSet id="laneSet_feedbackApprovalProcess">
+      <lane id="customerLane" name="Customer">
+        <flowNodeRef>editFeedback</flowNodeRef>
+        <flowNodeRef>editFormValidation</flowNodeRef>
+        <flowNodeRef>updateAsset</flowNodeRef>
+        <flowNodeRef>approvalProcessStarts</flowNodeRef>
+        <flowNodeRef>editFeedbackFormValidationGateway</flowNodeRef>
+      </lane>
+      <lane id="supervisorLane" name="Supervisor">
+        <flowNodeRef>supervisorApproval</flowNodeRef>
+        <flowNodeRef>addComments</flowNodeRef>
+        <flowNodeRef>deleteAsset</flowNodeRef>
+        <flowNodeRef>updatingAssetStatus</flowNodeRef>
+        <flowNodeRef>validatingSupervisorApprovalForm</flowNodeRef>
+        <flowNodeRef>escalationRemainderForDgTeam</flowNodeRef>
+        <flowNodeRef>assignTaskToDgTeamAfterTwoDays</flowNodeRef>
+        <flowNodeRef>supervisorRejectedDirectly</flowNodeRef>
+        <flowNodeRef>supervisorApprovalFormValidationGateway</flowNodeRef>
+        <flowNodeRef>checkingManagerRejectedVariable</flowNodeRef>
+      </lane>
+      <lane id="managerLane" name="Manager">
+        <flowNodeRef>addCommentAndSetForm</flowNodeRef>
+        <flowNodeRef>voteForApproval</flowNodeRef>
+        <flowNodeRef>generateFormValues</flowNodeRef>
+        <flowNodeRef>notifyCustomerAndSupervisor</flowNodeRef>
+        <flowNodeRef>checkingVotingThresholdResult</flowNodeRef>
+      </lane>
+      <lane id="customerRelationshipLeadLane" name="Customer Relationship Lead">
+        <flowNodeRef>customerRelationshipLeadApprvoval</flowNodeRef>
+        <flowNodeRef>notifyCustomer</flowNodeRef>
+        <flowNodeRef>assigningTaskToDgTeam</flowNodeRef>
+        <flowNodeRef>escalatedCrLeadApprovalToDgTeam</flowNodeRef>
+        <flowNodeRef>approvalProcessEnds</flowNodeRef>
+      </lane>
+    </laneSet>
+    <startEvent id="approvalProcessStarts" name="Start" activiti:initiator="startUser">
+      <extensionElements>
+        <activiti:formProperty id="voteCompletionPercentage" name="Please provide a threshold percentage for voting" type="long" default="50" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="voteTimeoutDuration" name="Timeout before voting process continues" type="string" default="B7D" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="voteWarningTimeDuration" name="Please provide a time to send the warning message" type="string" default="B5D" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="supervisorRejectedTemplate" name="Email Template for Supervisor Rejection" type="string" default="supervisorRejected-en" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="managerRejectedTemplate" name="Email Template for Manager Rejection" type="string" default="managerRejected" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="customerRelationshipLeadApprovedTemplate" name="Email template for Customer Relationship Lead Approval" type="string" default="customerRelationshipLeadApproved" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="customerRelationshipLeadRejectedTemplate" name="Email Template for Customer Relationship Lead Rejection" type="string" default="customerRelationshipLeadRejected" readable="false"></activiti:formProperty>
+        <activiti:formProperty id="dgTeamRemainderTemplate" name="Email Template to send Remainder mail to DG team" type="string" default="dgTeamRemainder" readable="false"></activiti:formProperty>
+      </extensionElements>
+    </startEvent>
+    <scriptTask id="validatingSupervisorApprovalForm" name="Validating Feedback" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Validating Feedback
+Author: Lucid
+Version: 1.0
+Version History: Validating Supervisor Approval Form
+Purpose: To validate the Supervisor Approval Form
+*/
+execution.setVariable("errormsg","")
+execution.setVariable("addComment","no")
+
+loggerApi.info("------------------------- " + isValidFeedback)
+loggerApi.info("------------------------- " + execution.getVariable("errormsg"))
+
+
+if(acceptButton){
+	if(isValidFeedback){
+		if(supervisorComment.toString()!=""){
+			execution.setVariable("addComment","yes")	
+		}
+		execution.setVariable("errormsg","")
+	}
+	else{
+		execution.setVariable("errormsg","Valid Feedback option is incorrect")	
+	}
+}
+else if(rejectButton){
+	if(!isValidFeedback){
+		if(supervisorComment.toString()!=""){
+			execution.setVariable("addComment","yes")	
+			execution.setVariable("errormsg","")
+		}
+		else{
+			execution.setVariable("errormsg","Comments are mandatory on rejection")
+		}
+	}
+	else{
+		execution.setVariable("errormsg","Valid Feedback option is incorrect")	
+	}
+}
+
+
+]]></script>
+    </scriptTask>
+    <endEvent id="supervisorRejectedDirectly" name="End"></endEvent>
+    <userTask id="supervisorApproval" name="Supervisor Approval" activiti:candidateUsers="${supervisorUserExpression}">
+      <extensionElements>
+        <activiti:formProperty id="hospital" name="&lt;span style=&quot;color:red;font-size:12px&quot;&gt;${errormsg}&lt;/span&gt; &lt;br&gt; Hospital" type="string" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="surgeons" name="Surgeon" type="string" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="speciality" name="Speciality" type="string" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="feedback" name="Customer Feedback" type="plainText" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="platform" name="Platform" type="dynamicCheckbox" writable="false">
+          <activiti:value id="dynamicValuesExpression" name="${platformValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="productCategory" name="Product Category" type="asset" writable="false">
+          <activiti:value id="proposedValues" name="${productCategoryProposedValues}"></activiti:value>
+          <activiti:value id="proposedFixed" name="true"></activiti:value>
+          <activiti:value id="multiValue" name="true"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="previousComments" name="Previous Comments" type="textarea" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="isValidFeedback" name="Is Valid Feedback ? &lt;span style=&quot;color:red&quot;&gt;*&lt;/span&gt;" type="boolean" required="true"></activiti:formProperty>
+        <activiti:formProperty id="supervisorComment" name="Comments" type="plainText">
+          <activiti:value id="helpText" name="*Comments are mandatory on Rejection"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="acceptButton" name="Accept" type="button"></activiti:formProperty>
+        <activiti:formProperty id="rejectButton" name="Reject" type="button"></activiti:formProperty>
+        <activiti:formProperty id="supervisorFormTaskButton" name="Accept/Reject" type="taskButton"></activiti:formProperty>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="validatingSupervisorApprovalFormFields" sourceRef="supervisorApproval" targetRef="validatingSupervisorApprovalForm"></sequenceFlow>
+    <exclusiveGateway id="supervisorApprovalFormValidationGateway" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="supervisorApprovalFormValidationCheck" sourceRef="validatingSupervisorApprovalForm" targetRef="supervisorApprovalFormValidationGateway"></sequenceFlow>
+    <sequenceFlow id="supervisorFormValidationFailed" name="Failed" sourceRef="supervisorApprovalFormValidationGateway" targetRef="supervisorApproval">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${errormsg!=""}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="forwardingToSupervisorApprovalForm" sourceRef="approvalProcessStarts" targetRef="supervisorApproval"></sequenceFlow>
+    <scriptTask id="addComments" name="Add Comments" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Add Comments
+Author: Lucid
+Version: 1.0
+Version History: Adding Supervisor Comments
+Purpose: To add the supervisor comment into the asset
+*/
+import com.collibra.dgc.core.api.model.ResourceType
+
+if(addComment=="yes"){
+	commentApi.addComment(builders.get("AddCommentRequest")
+	.baseResourceId(item.getId())
+	.baseResourceType(ResourceType.Asset)
+	.content(supervisorComment.toString())
+	.build())
+}
+
+def commentVariable= users.getCurrent()+" [Supervisor]: "+supervisorComment+"<br>"
+execution.setVariable("previousComments",previousComments+commentVariable)
+
+def currentStatus = assetApi.getAsset(item.getId()).getStatus()*.getName()
+
+if(currentStatus.get(0)!=managerRejectedStatus){
+	execution.setVariable("managerRejected","no")
+}
+else{
+	execution.setVariable("managerRejected","yes")	
+}
+loggerApi.info("===================== " + managerRejected + " ==================== " + currentStatus + " ================== " + managerRejectedStatus)]]></script>
+    </scriptTask>
+    <sequenceFlow id="supervisorFormValidationSuccessful" name="Rejected" sourceRef="supervisorApprovalFormValidationGateway" targetRef="addComments">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${errormsg=="" && rejectButton}]]></conditionExpression>
+    </sequenceFlow>
+    <exclusiveGateway id="checkingManagerRejectedVariable" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="temporaryAssetStatusCheck" sourceRef="addComments" targetRef="checkingManagerRejectedVariable"></sequenceFlow>
+    <scriptTask id="deleteAsset" name="Delete Asset And Notify Customer" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Delete Asset And Notify Customer
+Author: Lucid
+Version: 1.0
+Version History: Deletes the asset and notifies customer
+Purpose: To delete the asset on supervisor rejection and notify customer
+*/
+import com.collibra.dgc.workflow.api.exception.WorkflowException
+assetApi.removeAsset(item.getId())
+loggerApi.info("--------------- Supervisor Rejected and Asset Deleted -------------------")
+
+def usersIds = users.getUserIds("user(${startUser})");
+def template = "${supervisorRejectedTemplate}";
+if (usersIds.isEmpty()){
+    loggerApi.warn("No users to send a mail to, no mail will be send");
+} else if (template == null) {
+
+	// WorkflowException workflowException
+	// workflowException = new WorkflowException("Couldn't find the email template.Please check the name of the template")
+	// workflowException.setTitleMessage("Email Template Not Found");
+	// throw workflowException
+
+    loggerApi.warn("No template for mail, no mail will be send");
+} else {
+    mail.sendMails(usersIds, template, null, execution);
+}]]></script>
+    </scriptTask>
+    <sequenceFlow id="directRejectionBySupervisor" name="Supervisor Rejected" sourceRef="checkingManagerRejectedVariable" targetRef="deleteAsset">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${managerRejected=="no"}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="temporaryAssetDeletedAndProcessEnds" sourceRef="deleteAsset" targetRef="supervisorRejectedDirectly"></sequenceFlow>
+    <scriptTask id="addCommentAndSetForm" name="Add Comments And Set Form" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Add Comments And Set Form
+Author: Lucid
+Version: 1.0
+Version History: Adds supervisor comment and set manager's approval form
+Purpose: To add the supervisor comment and set the form for manager's approval
+*/
+import com.collibra.dgc.core.api.model.ResourceType
+
+if(supervisorComment.toString()!=""){
+	commentApi.addComment(builders.get("AddCommentRequest")
+	.baseResourceId(item.getId())
+	.baseResourceType(ResourceType.Asset)
+	.content(supervisorComment.toString())
+	.build())
+	def commentVariable= users.getCurrent()+" [Supervisor]: "+supervisorComment+"<br>"
+execution.setVariable("previousComments",previousComments+commentVariable)
+}
+assetApi.changeAsset(builders.get("ChangeAssetRequest")
+	.id(item.getId())
+	.statusId(getStatusIdByName(supervisorApprovedStatus).get(0).getId())
+	.build())
+
+loggerApi.info("----------------- Manager Form Setted ------------------")]]></script>
+    </scriptTask>
+    <sequenceFlow id="supervisorApprovedTheFeedback" name="Accepted" sourceRef="supervisorApprovalFormValidationGateway" targetRef="addCommentAndSetForm"></sequenceFlow>
+    <userTask id="editFeedback" name="Edit Feedback" activiti:candidateUsers="user(${startUser})">
+      <extensionElements>
+        <activiti:formProperty id="hospital" name="&lt;span style=&quot;color:red;font-size:14px&quot;&gt;${errormsg}&lt;/span&gt; &lt;br&gt; Choose Hospital" type="dynamicEnum">
+          <activiti:value id="dynamicValuesExpression" name="${hospitalValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="surgeons" name="Choose Surgeon" type="dynamicEnum">
+          <activiti:value id="dynamicValuesExpression" name="${surgeonValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="speciality" name="Choose Speciality" type="dynamicEnum">
+          <activiti:value id="dynamicValuesExpression" name="${specialityValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="feedback" name="Provide Feedback" type="plainText"></activiti:formProperty>
+        <activiti:formProperty id="platform" name="Select Platform" type="dynamicCheckbox">
+          <activiti:value id="dynamicValuesExpression" name="${platformValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="productCategory" name="Select Product Category" type="asset">
+          <activiti:value id="proposedFixed" name="True"></activiti:value>
+          <activiti:value id="multiValue" name="True"></activiti:value>
+          <activiti:value id="proposedValues" name="${productCategoryProposedValues}"></activiti:value>
+          <activiti:value id="domainId" name="${productCategoryDomainId}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="editFeedbackTaskButton" name="Edit Feedback" type="taskButton"></activiti:formProperty>
+        <activiti:formProperty id="attachment" name="Upload Attachment" type="fileUpload">
+          <activiti:value id="helpText" name="* Only selected files are allowed (.docx, .xlsx)"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="submitButton" name="Submit" type="button"></activiti:formProperty>
+        <activiti:formProperty id="cancelButton" name="Cancel" type="button"></activiti:formProperty>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="supervisorRejectedfollowedByManager" name="Rejected After Manager" sourceRef="checkingManagerRejectedVariable" targetRef="updatingAssetStatus">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${managerRejected=="yes"}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="validatingTheEditedFeedbackForm" sourceRef="editFeedback" targetRef="editFormValidation"></sequenceFlow>
+    <scriptTask id="editFormValidation" name="Form Validation" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Form Validation
+Author: Lucid
+Version: 1.0
+Version History: Validating Edit Feedback Form
+Purpose: To validate the edit feedback form
+*/
+import com.collibra.dgc.workflow.api.bean.WorkflowUtility
+import com.collibra.dgc.core.api.dto.MatchMode
+import com.collibra.dgc.core.api.model.ResourceType
+
+/**********************************************************/
+execution.setVariable("errormsg","")
+
+
+def fileObj= execution.getVariable("attachment")
+
+if(submitButton){
+
+  if(!hospital || !surgeons || !speciality || !productCategory || feedback.toString()==""){
+    execution.setVariable("errormsg","Please fill all the fields")
+  }
+  else{
+
+    if(platform){
+      execution.setVariable("platformChoosen","yes")
+    }
+    else{
+     execution.setVariable("platformChoosen","no") 
+    }
+
+    if(fileObj){
+
+    def extension=fileApi.getFileInfo(string2Uuid(fileObj)).getExtension()
+
+    if(extension==".docx" || extension==".xlsx"){
+      execution.setVariable("errormsg","success")
+    execution.setVariable("attachFile","yes")
+    }
+    else{
+    execution.setVariable("errormsg","Unsupported File Format.Please upload .docx or .xlsx files")
+    loggerApi.info("------------------- in valid file format  ---------------------")  
+    execution.setVariable("attachment",null)
+    }
+  }
+  else{
+    execution.setVariable("errormsg","success")
+    execution.setVariable("attachFile","no")
+  } 
+ } 
+}
+else if(cancelButton){
+   execution.setVariable("errormsg","end")
+}
+/*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+
+]]></script>
+    </scriptTask>
+    <exclusiveGateway id="editFeedbackFormValidationGateway" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="editFeedbackFormValidationCheck" sourceRef="editFormValidation" targetRef="editFeedbackFormValidationGateway"></sequenceFlow>
+    <scriptTask id="updateAsset" name="Update Asset" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Update Asset
+Author: Lucid
+Version: 1.0
+Version History: Updates Attributes in asset
+Purpose: To update the attributes edited by the requestor
+*/
+import com.collibra.dgc.core.api.dto.MatchMode
+import com.collibra.dgc.core.api.model.ResourceType
+
+def getAttributeIdByType(String type){
+	def attributesList = attributeApi.findAttributes(builders.get("FindAttributesRequest")
+		.assetId(item.getId())
+		.typeIds([getAttributeTypeIdByName(type).get(0).getId()])
+		.build()).getResults()
+	return attributesList
+}
+
+def updateAttribute(Object updatedValue,String type){
+	def attrList =getAttributeIdByType(type) 
+	if(attrList.size()==0){
+		attributeApi.addAttribute(builders.get("AddAttributeRequest")
+ 			.assetId(item.getId())
+ 			.typeId(getAttributeTypeIdByName(type).get(0).getId())
+ 			.value(updatedValue)
+ 			.build())
+	}
+	else{
+		attributeApi.changeAttribute(builders.get("ChangeAttributeRequest")
+			.id(attrList.get(0).getId())
+			.value(updatedValue)
+			.build())
+	}
+}
+
+updateAttribute(hospital,hospitalAttribute)
+updateAttribute(surgeons,surgeonAttribute)
+updateAttribute(speciality,specialityAttribute)
+updateAttribute(feedback.toString(),userFeedbackAttribute)
+
+def productCategoryRelationsList= relationApi.findRelations(builders.get("FindRelationsRequest").sourceId(item.getId()).build()).getResults()*.getId()
+
+relationApi.removeRelations(productCategoryRelationsList)
+
+loggerApi.info("------------------------- Updating Product Category Values ------------------------" + productCategory)
+
+for(def product : productCategory){
+	addRelation(item.getId(),product,getRelationTypeIdByName(feedbackBusinessAssetRelation).get(0).getId())
+}
+
+def existingPlatformSelectedValues = attributeApi.findAttributes(builders.get("FindAttributesRequest").assetId(item.getId())
+		.typeIds([getAttributeTypeIdByName(platformAttribute).get(0).getId()])
+		.build()).getResults()*.getValue()
+
+existingPlatformSelectedValues=existingPlatformSelectedValues.flatten()
+
+loggerApi.info("------------------------ Existing Platform Values ---------------------" + existingPlatformSelectedValues)
+
+def platformSelected = utility.toList(platform).minus(existingPlatformSelectedValues)
+
+if(execution.getVariable("platformChoosen")=="yes"){
+  loggerApi.info("------------------------- Updating Platform Values ------------------------" + platform)
+  for(String platformValue: platformSelected){
+  	if(!existingPlatformSelectedValues.contains(platformValues[platformValue])){
+  		addAttribute(item.getId(),platformAttribute,platformValues[platformValue])
+	}
+  } 
+}
+
+loggerApi.info("-------------------------------- platform values updated ----------------------------")
+
+loggerApi.info("------------------- Removing File ---------------------")
+
+def attachmentsList = attachmentApi.findAttachments(builders.get("FindAttachmentsRequest").baseResourceId(item.getId()).build()).getResults()*.getId()
+if(attachmentsList.size()>0){
+	for(def uuid:attachmentsList){
+		attachmentApi.removeAttachment(uuid);
+	}
+}
+
+
+if(execution.getVariable("attachFile")=="yes"){
+  def fileObj= execution.getVariable("attachment")
+  def fileDetails = fileApi.getFileInfo(string2Uuid(fileObj))
+  def fileContents = fileApi.getFileAsStream(string2Uuid(fileObj))
+  def extension=fileDetails.getExtension()
+  def attachment
+attachment = attachmentApi.addAttachment(builders.get("AddAttachmentRequest")
+  .baseResourceId(item.getId())
+  .baseResourceType(ResourceType.Asset)
+  .fileName(fileDetails.getName())
+  .fileStream(fileContents)
+  .build())  
+}
+loggerApi.info("---------------------------------------- file Updated -----------------")
+
+assetApi.changeAsset(builders.get("ChangeAssetRequest")
+	.id(item.getId())
+	.statusId(getStatusIdByName(inProgressStatus).get(0).getId())
+	.build())
+
+loggerApi.info("--------------------------- attributes updated ------------")
+execution.setVariable("isValidFeedback",null)
+execution.setVariable("supervisorComment",null)
+execution.setVariable("errormsg","")]]></script>
+    </scriptTask>
+    <sequenceFlow id="editFeedbackValidationSuccessful" name="Validation Success" sourceRef="editFeedbackFormValidationGateway" targetRef="updateAsset">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${errormsg=="success"}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="editFeedbackFormValidationCheckFailed" name="Validation Failed" sourceRef="editFeedbackFormValidationGateway" targetRef="editFeedback">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${errormsg!="end" && errormsg!="success" }]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="updatedAssetAttributes" sourceRef="updateAsset" targetRef="supervisorApproval"></sequenceFlow>
+    <sequenceFlow id="cancelledTheProposalByRequestor" name="Canceled Proposal" sourceRef="editFeedbackFormValidationGateway" targetRef="deleteAsset">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${errormsg=="end"}]]></conditionExpression>
+    </sequenceFlow>
+    <scriptTask id="updatingAssetStatus" name="Updating Asset Status" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Updating Asset Status
+Author: Lucid
+Version: 1.0
+Version History: Updating Asset Status
+Purpose: To update the status if the supervisor accepts/ rejects the proposal
+*/
+assetApi.changeAsset(builders.get("ChangeAssetRequest")
+	.id(item.getId())
+	.statusId(getStatusIdByName(supervisorRejectedStatus).get(0).getId())
+	.build())
+
+def usersIds = users.getUserIds("user(${startUser})");
+def template = "${supervisorRejectedTemplate}";
+if (usersIds.isEmpty()){
+    loggerApi.warn("No users to send a mail to, no mail will be send");
+} else if (template == null) {
+    loggerApi.warn("No template for mail, no mail will be send");
+} else {
+    mail.sendMails(usersIds, template, null, execution);
+}]]></script>
+    </scriptTask>
+    <sequenceFlow id="editingTheProposedFeedbackByRequestor" sourceRef="updatingAssetStatus" targetRef="editFeedback"></sequenceFlow>
+    <callActivity id="voteForApproval" name="Vote for Approval" calledElement="feedbackVotingSubProcess" activiti:inheritVariables="false">
+      <extensionElements>
+        <activiti:in source="managerUserExpression" target="voterUserExpression"></activiti:in>
+        <activiti:in source="voteCompletionPercentage" target="votePercentage"></activiti:in>
+        <activiti:in source="voteWarningTimeDuration" target="voteWarningTimeDuration"></activiti:in>
+        <activiti:in source="voteTimeoutDuration" target="voteTimeoutDuration"></activiti:in>
+        <activiti:in sourceExpression="${&quot;Vote for Approval&quot;}" target="voteTaskName"></activiti:in>
+        <activiti:in sourceExpression="${true}" target="earlyComplete"></activiti:in>
+        <activiti:in source="hospital" target="hospital"></activiti:in>
+        <activiti:in source="surgeons" target="surgeons"></activiti:in>
+        <activiti:in source="speciality" target="speciality"></activiti:in>
+        <activiti:in source="platform" target="platform"></activiti:in>
+        <activiti:in source="productCategory" target="productCategory"></activiti:in>
+        <activiti:in source="feedback" target="feedback"></activiti:in>
+        <activiti:in source="hospitalValues" target="hospitalValues"></activiti:in>
+        <activiti:in source="surgeonValues" target="surgeonValues"></activiti:in>
+        <activiti:in source="specialityValues" target="specialityValues"></activiti:in>
+        <activiti:in source="previousComments" target="previousComments"></activiti:in>
+        <activiti:in source="productCategoryProposedValues" target="productCategoryProposedValues"></activiti:in>
+        <activiti:in sourceExpression="${&quot;&quot;}" target="errormsg"></activiti:in>
+        <activiti:in source="dgTeamUserExpression" target="dgTeamUserExpression"></activiti:in>
+        <activiti:in source="dgTeamRemainderTemplate" target="dgTeamRemainderTemplate"></activiti:in>
+        <activiti:out source="votingSuccess" target="votingResult"></activiti:out>
+        <activiti:out source="previousComments" target="previousComments"></activiti:out>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="addingCommentsAndForwardedToVotingProcess" sourceRef="addCommentAndSetForm" targetRef="voteForApproval"></sequenceFlow>
+    <scriptTask id="generateFormValues" name="Generate Form Values" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Generate Form Values
+Author: Lucid
+Version: 1.0
+Version History: Generates Hyperlink for CR Lead Approval form
+Purpose: To generate hyperlink to download attachment in CR Lead's approval form
+*/
+
+assetApi.changeAsset(builders.get("ChangeAssetRequest")
+	.id(item.getId())
+	.statusId(getStatusIdByName(managerApprovedStatus).get(0).getId())
+	.build())
+
+def dgcBaseUrl = applicationApi.getInfo().getBaseUrl()
+def attachmentsList = attachmentApi.findAttachments(builders.get("FindAttachmentsRequest").baseResourceId(item.getId()).build()).getResults()
+loggerApi.info("======================"+ attachmentsList)
+if(attachmentsList.size()==0){
+	def hyperlink="No attachment to download";
+	execution.setVariable("downloadAttachment",hyperlink)
+}
+else{
+	def downloadAttachment= dgcBaseUrl+"rest/1.0/attachment/download/"+attachmentsList.get(0).getFile().getId()
+	def hyperlink="<a download href="+downloadAttachment+">Click here to download Attachment.</a>"
+	execution.setVariable("downloadAttachment",hyperlink)
+}
+]]></script>
+    </scriptTask>
+    <exclusiveGateway id="checkingVotingThresholdResult" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="checkingVotingResult" sourceRef="voteForApproval" targetRef="checkingVotingThresholdResult"></sequenceFlow>
+    <sequenceFlow id="votingResultPassed" name="Approved" sourceRef="checkingVotingThresholdResult" targetRef="generateFormValues">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${votingResult}]]></conditionExpression>
+    </sequenceFlow>
+    <userTask id="customerRelationshipLeadApprvoval" name="CR Lead Approval" activiti:candidateUsers="${customerRelationshipLeadUserExpression}">
+      <extensionElements>
+        <activiti:formProperty id="hospital" name="Hospital" type="string" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="surgeons" name="Surgeon" type="string" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="speciality" name="Speciality" type="string" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="feedback" name="Customer Feedback" type="plainText" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="platform" name="Platform" type="dynamicCheckbox" writable="false">
+          <activiti:value id="dynamicValuesExpression" name="${platformValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="productCategory" name="Product Category" type="asset" writable="false">
+          <activiti:value id="proposedValues" name="${productCategoryProposedValues}"></activiti:value>
+          <activiti:value id="proposedFixed" name="true"></activiti:value>
+          <activiti:value id="multiValue" name="true"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="previousComments" name="Previous Comments" type="textarea" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="crLeadComment" name="&lt;span style=&quot;color:green;font-size:15px&quot;&gt;${downloadAttachment}&lt;/span&gt; &lt;br&gt;&lt;br&gt; Comments &lt;span style=&quot;color:red&quot;&gt;*&lt;/span&gt;" type="plainText" required="true"></activiti:formProperty>
+        <activiti:formProperty id="approveButton" name="Approve" type="button"></activiti:formProperty>
+        <activiti:formProperty id="rejectButton" name="Reject" type="button"></activiti:formProperty>
+        <activiti:formProperty id="crLeadFormTaskButton" name="Approve/Reject" type="taskButton"></activiti:formProperty>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="settingFormValuesForCrLeadApproval" sourceRef="generateFormValues" targetRef="customerRelationshipLeadApprvoval"></sequenceFlow>
+    <scriptTask id="notifyCustomer" name="Notify Customer" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Notify Customer
+Author: Lucid
+Version: 1.0
+Version History: Escalate the supervisor approval to dg team after 2 days
+Purpose: To notify customer even if CR Lead approves or rejects the proposal
+*/
+def supervisorUsersIds = users.getUserIds("${supervisorUserExpression}")
+def managerUsersIds = users.getUserIds("${managerUserExpression}")
+def userId=users.getUserIds("user(${startUser})")
+def template
+loggerApi.info("================ Mail Sent to --> " + supervisorUsersIds)
+
+if(approveButton){
+	// Move the temporary asset from temporary domain to target domain
+	assetApi.changeAsset(builders.get("ChangeAssetRequest")
+	.domainId(getDomainIdByName(targetDomainName).get(0).getId())
+	.id(item.getId())
+	.build())
+
+	assetApi.changeAsset(builders.get("ChangeAssetRequest")
+	.id(item.getId())
+	.statusId(getStatusIdByName(approvedStatus).get(0).getId())
+	.build())
+
+	template = "${customerRelationshipLeadApprovedTemplate}";
+}
+else{
+	assetApi.changeAsset(builders.get("ChangeAssetRequest")
+	.id(item.getId())
+	.statusId(getStatusIdByName(rejectedStatus).get(0).getId())
+	.build())
+
+	template = "${customerRelationshipLeadRejectedTemplate}";
+
+}
+
+if (supervisorUsersIds.isEmpty() || managerUsersIds.isEmpty()){
+loggerApi.warn("No users to send a mail to, no mail will be send");
+} else if (template == null) {
+    loggerApi.warn("No template for mail, no mail will be send");
+} else {
+    mail.sendMails(supervisorUsersIds, template, null, execution);
+    mail.sendMails(managerUsersIds, template, null, execution);
+    mail.sendMails(userId, template, null, execution);
+}]]></script>
+    </scriptTask>
+    <sequenceFlow id="movingAssetAndStatusChange" sourceRef="customerRelationshipLeadApprvoval" targetRef="notifyCustomer"></sequenceFlow>
+    <endEvent id="approvalProcessEnds" name="End"></endEvent>
+    <sequenceFlow id="approvalWorkflowEnds" sourceRef="notifyCustomer" targetRef="approvalProcessEnds"></sequenceFlow>
+    <scriptTask id="notifyCustomerAndSupervisor" name="Notify Customer And Supervisors" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Notify Customer And Supervisors
+Author: Lucid
+Version: 1.0
+Version History: Notifies Customer and Supervisors on manager's rejection
+Purpose: To notify customer and supervisor if manager rejects the proposal 
+*/
+assetApi.changeAsset(builders.get("ChangeAssetRequest")
+	.id(item.getId())
+	.statusId(getStatusIdByName(managerRejectedStatus).get(0).getId())
+	.build())
+
+def supervisorUsersIds = users.getUserIds(supervisorUserExpression)
+def userId=users.getUserIds("user(${startUser})")
+loggerApi.info("================ Mail Sent to --> " + supervisorUsersIds)
+
+def template = "${managerRejectedTemplate}";
+if (supervisorUsersIds.isEmpty()){
+    loggerApi.warn("No users to send a mail to, no mail will be send");
+} else if (template == null) {
+    loggerApi.warn("No template for mail, no mail will be send");
+} else {
+    mail.sendMails(supervisorUsersIds, template, null, execution);
+    mail.sendMails(userId, template, null, execution);
+    loggerApi.info("================ Mail Sent. Just Check !! ")
+}
+
+execution.setVariable("isValidFeedback",null)
+execution.setVariable("supervisorComment",null)
+execution.setVariable("supervisorUserExpression",supervisorUserExpression)]]></script>
+    </scriptTask>
+    <sequenceFlow id="votingResultFailed" name="Rejected" sourceRef="checkingVotingThresholdResult" targetRef="notifyCustomerAndSupervisor">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${!votingResult}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="managerRejectedTheFeedback" sourceRef="notifyCustomerAndSupervisor" targetRef="supervisorApproval"></sequenceFlow>
+    <boundaryEvent id="escalationRemainderForDgTeam" name="Timer" attachedToRef="supervisorApproval" cancelActivity="true">
+      <timerEventDefinition>
+        <timeCycle>R1/PT2M</timeCycle>
+      </timerEventDefinition>
+    </boundaryEvent>
+    <scriptTask id="assignTaskToDgTeamAfterTwoDays" name="Assign to DG Team" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Assign to DG Team
+Author: Lucid
+Version: 1.0
+Version History: Escalate the supervisor approval to dg team after 2 days
+Purpose: To escalate the supervisor approval to dg team after 2 days if supervisor doesn't respond to approval
+*/
+if(supervisorUserExpression!=dgTeamUserExpression){
+	execution.setVariable("supervisorUserExpression",dgTeamUserExpression)
+}
+else{
+	def usersIds = users.getUserIds("${dgTeamUserExpression}");
+	def template = "${dgTeamRemainderTemplate}";
+	if (usersIds.isEmpty()){
+	    loggerApi.warn("No users to send a mail to, no mail will be send");
+	} 
+	else if (template == null) {
+	    loggerApi.warn("No template for mail, no mail will be send");
+	} 
+	else {
+	    mail.sendMails(usersIds, template, null, execution);
+	}
+}
+loggerApi.info("=================== Task assigned to "+ dgTeamUserExpression)]]></script>
+    </scriptTask>
+    <sequenceFlow id="escalatingTheSupervisorApprovalToDgTeam" sourceRef="escalationRemainderForDgTeam" targetRef="assignTaskToDgTeamAfterTwoDays"></sequenceFlow>
+    <sequenceFlow id="userExpressionUpdatedAndTaskAssignedToDgTeam" sourceRef="assignTaskToDgTeamAfterTwoDays" targetRef="supervisorApproval"></sequenceFlow>
+    <scriptTask id="assigningTaskToDgTeam" name="Assign To DG Team" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Assign To DG Team
+Author: Lucid
+Version: 1.0
+Version History: Escalate the CR Lead approval to dg team after 2 days
+Purpose: To escalate the CR Lead approval to dg team after 2 days if CR Lead doesn't respond to approval
+*/
+if(customerRelationshipLeadUserExpression!=dgTeamUserExpression){
+	execution.setVariable("customerRelationshipLeadUserExpression",dgTeamUserExpression)
+}
+else{
+	def usersIds = users.getUserIds("${dgTeamUserExpression}");
+	def template = "${dgTeamRemainderTemplate}";
+	if (usersIds.isEmpty()){
+	    loggerApi.warn("No users to send a mail to, no mail will be send");
+	} 
+	else if (template == null) {
+	    loggerApi.warn("No template for mail, no mail will be send");
+	} 
+	else {
+	    mail.sendMails(usersIds, template, null, execution);
+	}
+}
+loggerApi.info("=================== Task assigned to "+ dgTeamUserExpression)]]></script>
+    </scriptTask>
+    <boundaryEvent id="escalatedCrLeadApprovalToDgTeam" name="Timer" attachedToRef="customerRelationshipLeadApprvoval" cancelActivity="true">
+      <timerEventDefinition>
+        <timeCycle>R1/PT2M</timeCycle>
+      </timerEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="escalatingToDgTeamForCrLeadApproval" sourceRef="escalatedCrLeadApprovalToDgTeam" targetRef="assigningTaskToDgTeam"></sequenceFlow>
+    <sequenceFlow id="taskAssignedToDgTeam" sourceRef="assigningTaskToDgTeam" targetRef="customerRelationshipLeadApprvoval"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Collaboration">
+    <bpmndi:BPMNPlane bpmnElement="Collaboration" id="BPMNPlane_Collaboration">
+      <bpmndi:BPMNShape bpmnElement="feedbackApproval" id="BPMNShape_feedbackApproval">
+        <omgdc:Bounds height="932.0" width="1161.0" x="60.0" y="29.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="customerLane" id="BPMNShape_customerLane">
+        <omgdc:Bounds height="172.0" width="1141.0" x="80.0" y="29.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="supervisorLane" id="BPMNShape_supervisorLane">
+        <omgdc:Bounds height="310.0" width="1141.0" x="80.0" y="201.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="managerLane" id="BPMNShape_managerLane">
+        <omgdc:Bounds height="206.0" width="1141.0" x="80.0" y="511.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="customerRelationshipLeadLane" id="BPMNShape_customerRelationshipLeadLane">
+        <omgdc:Bounds height="244.0" width="1141.0" x="80.0" y="717.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="approvalProcessStarts" id="BPMNShape_approvalProcessStarts">
+        <omgdc:Bounds height="35.0" width="35.0" x="160.0" y="70.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="validatingSupervisorApprovalForm" id="BPMNShape_validatingSupervisorApprovalForm">
+        <omgdc:Bounds height="61.0" width="105.0" x="280.0" y="313.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="supervisorRejectedDirectly" id="BPMNShape_supervisorRejectedDirectly">
+        <omgdc:Bounds height="35.0" width="35.0" x="1170.0" y="304.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="supervisorApproval" id="BPMNShape_supervisorApproval">
+        <omgdc:Bounds height="65.0" width="105.0" x="130.0" y="311.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="escalationRemainderForDgTeam" id="BPMNShape_escalationRemainderForDgTeam">
+        <omgdc:Bounds height="30.0" width="30.0" x="150.0" y="361.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="supervisorApprovalFormValidationGateway" id="BPMNShape_supervisorApprovalFormValidationGateway">
+        <omgdc:Bounds height="40.0" width="40.0" x="430.0" y="323.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="addComments" id="BPMNShape_addComments">
+        <omgdc:Bounds height="55.0" width="105.0" x="520.0" y="316.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="checkingManagerRejectedVariable" id="BPMNShape_checkingManagerRejectedVariable">
+        <omgdc:Bounds height="40.0" width="40.0" x="700.0" y="311.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="deleteAsset" id="BPMNShape_deleteAsset">
+        <omgdc:Bounds height="67.0" width="105.0" x="870.0" y="304.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="addCommentAndSetForm" id="BPMNShape_addCommentAndSetForm">
+        <omgdc:Bounds height="68.0" width="105.0" x="210.0" y="558.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="editFeedback" id="BPMNShape_editFeedback">
+        <omgdc:Bounds height="55.0" width="105.0" x="670.0" y="70.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="editFormValidation" id="BPMNShape_editFormValidation">
+        <omgdc:Bounds height="55.0" width="105.0" x="490.0" y="70.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="editFeedbackFormValidationGateway" id="BPMNShape_editFeedbackFormValidationGateway">
+        <omgdc:Bounds height="40.0" width="40.0" x="380.0" y="77.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="updateAsset" id="BPMNShape_updateAsset">
+        <omgdc:Bounds height="55.0" width="105.0" x="240.0" y="70.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="updatingAssetStatus" id="BPMNShape_updatingAssetStatus">
+        <omgdc:Bounds height="61.0" width="105.0" x="670.0" y="220.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="voteForApproval" id="BPMNShape_voteForApproval">
+        <omgdc:Bounds height="68.0" width="105.0" x="390.0" y="558.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="generateFormValues" id="BPMNShape_generateFormValues">
+        <omgdc:Bounds height="58.0" width="105.0" x="508.0" y="648.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="checkingVotingThresholdResult" id="BPMNShape_checkingVotingThresholdResult">
+        <omgdc:Bounds height="40.0" width="40.0" x="540.0" y="573.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="customerRelationshipLeadApprvoval" id="BPMNShape_customerRelationshipLeadApprvoval">
+        <omgdc:Bounds height="65.0" width="105.0" x="250.0" y="788.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="escalatedCrLeadApprovalToDgTeam" id="BPMNShape_escalatedCrLeadApprovalToDgTeam">
+        <omgdc:Bounds height="30.0" width="30.0" x="300.0" y="840.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="notifyCustomer" id="BPMNShape_notifyCustomer">
+        <omgdc:Bounds height="55.0" width="105.0" x="480.0" y="793.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="approvalProcessEnds" id="BPMNShape_approvalProcessEnds">
+        <omgdc:Bounds height="35.0" width="35.0" x="630.0" y="803.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="notifyCustomerAndSupervisor" id="BPMNShape_notifyCustomerAndSupervisor">
+        <omgdc:Bounds height="63.0" width="105.0" x="700.0" y="566.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="assignTaskToDgTeamAfterTwoDays" id="BPMNShape_assignTaskToDgTeamAfterTwoDays">
+        <omgdc:Bounds height="65.0" width="105.0" x="110.0" y="440.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="assigningTaskToDgTeam" id="BPMNShape_assigningTaskToDgTeam">
+        <omgdc:Bounds height="61.0" width="105.0" x="250.0" y="890.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="validatingSupervisorApprovalFormFields" id="BPMNEdge_validatingSupervisorApprovalFormFields">
+        <omgdi:waypoint x="235.0" y="343.0"></omgdi:waypoint>
+        <omgdi:waypoint x="280.0" y="343.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="supervisorApprovalFormValidationCheck" id="BPMNEdge_supervisorApprovalFormValidationCheck">
+        <omgdi:waypoint x="385.0" y="343.0"></omgdi:waypoint>
+        <omgdi:waypoint x="430.0" y="343.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="supervisorFormValidationFailed" id="BPMNEdge_supervisorFormValidationFailed">
+        <omgdi:waypoint x="450.0" y="363.0"></omgdi:waypoint>
+        <omgdi:waypoint x="450.0" y="433.0"></omgdi:waypoint>
+        <omgdi:waypoint x="182.0" y="433.0"></omgdi:waypoint>
+        <omgdi:waypoint x="182.0" y="376.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="16.0" width="35.0" x="185.0" y="410.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="forwardingToSupervisorApprovalForm" id="BPMNEdge_forwardingToSupervisorApprovalForm">
+        <omgdi:waypoint x="177.0" y="105.0"></omgdi:waypoint>
+        <omgdi:waypoint x="182.0" y="311.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="supervisorFormValidationSuccessful" id="BPMNEdge_supervisorFormValidationSuccessful">
+        <omgdi:waypoint x="470.0" y="343.0"></omgdi:waypoint>
+        <omgdi:waypoint x="520.0" y="343.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="16.0" width="51.0" x="470.0" y="331.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="temporaryAssetStatusCheck" id="BPMNEdge_temporaryAssetStatusCheck">
+        <omgdi:waypoint x="625.0" y="343.0"></omgdi:waypoint>
+        <omgdi:waypoint x="700.0" y="331.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="directRejectionBySupervisor" id="BPMNEdge_directRejectionBySupervisor">
+        <omgdi:waypoint x="740.0" y="331.0"></omgdi:waypoint>
+        <omgdi:waypoint x="870.0" y="337.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="48.0" width="100.0" x="760.0" y="336.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="temporaryAssetDeletedAndProcessEnds" id="BPMNEdge_temporaryAssetDeletedAndProcessEnds">
+        <omgdi:waypoint x="975.0" y="337.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1170.0" y="321.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="supervisorApprovedTheFeedback" id="BPMNEdge_supervisorApprovedTheFeedback">
+        <omgdi:waypoint x="450.0" y="363.0"></omgdi:waypoint>
+        <omgdi:waypoint x="449.0" y="430.0"></omgdi:waypoint>
+        <omgdi:waypoint x="262.0" y="430.0"></omgdi:waypoint>
+        <omgdi:waypoint x="262.0" y="558.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="16.0" width="55.0" x="445.0" y="400.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="supervisorRejectedfollowedByManager" id="BPMNEdge_supervisorRejectedfollowedByManager">
+        <omgdi:waypoint x="720.0" y="311.0"></omgdi:waypoint>
+        <omgdi:waypoint x="722.0" y="281.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="48.0" width="100.0" x="726.0" y="240.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="validatingTheEditedFeedbackForm" id="BPMNEdge_validatingTheEditedFeedbackForm">
+        <omgdi:waypoint x="670.0" y="97.0"></omgdi:waypoint>
+        <omgdi:waypoint x="595.0" y="97.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="editFeedbackFormValidationCheck" id="BPMNEdge_editFeedbackFormValidationCheck">
+        <omgdi:waypoint x="490.0" y="97.0"></omgdi:waypoint>
+        <omgdi:waypoint x="420.0" y="97.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="editFeedbackValidationSuccessful" id="BPMNEdge_editFeedbackValidationSuccessful">
+        <omgdi:waypoint x="380.0" y="97.0"></omgdi:waypoint>
+        <omgdi:waypoint x="345.0" y="97.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="48.0" width="100.0" x="300.0" y="120.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="editFeedbackFormValidationCheckFailed" id="BPMNEdge_editFeedbackFormValidationCheckFailed">
+        <omgdi:waypoint x="400.0" y="117.0"></omgdi:waypoint>
+        <omgdi:waypoint x="400.0" y="150.0"></omgdi:waypoint>
+        <omgdi:waypoint x="722.0" y="150.0"></omgdi:waypoint>
+        <omgdi:waypoint x="722.0" y="125.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="16.0" width="96.0" x="400.0" y="160.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="updatedAssetAttributes" id="BPMNEdge_updatedAssetAttributes">
+        <omgdi:waypoint x="292.0" y="125.0"></omgdi:waypoint>
+        <omgdi:waypoint x="292.0" y="232.0"></omgdi:waypoint>
+        <omgdi:waypoint x="182.0" y="232.0"></omgdi:waypoint>
+        <omgdi:waypoint x="182.0" y="311.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="cancelledTheProposalByRequestor" id="BPMNEdge_cancelledTheProposalByRequestor">
+        <omgdi:waypoint x="400.0" y="77.0"></omgdi:waypoint>
+        <omgdi:waypoint x="398.0" y="39.0"></omgdi:waypoint>
+        <omgdi:waypoint x="922.0" y="39.0"></omgdi:waypoint>
+        <omgdi:waypoint x="922.0" y="304.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="48.0" width="100.0" x="400.0" y="28.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="editingTheProposedFeedbackByRequestor" id="BPMNEdge_editingTheProposedFeedbackByRequestor">
+        <omgdi:waypoint x="722.0" y="220.0"></omgdi:waypoint>
+        <omgdi:waypoint x="722.0" y="125.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="addingCommentsAndForwardedToVotingProcess" id="BPMNEdge_addingCommentsAndForwardedToVotingProcess">
+        <omgdi:waypoint x="315.0" y="592.0"></omgdi:waypoint>
+        <omgdi:waypoint x="390.0" y="592.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="checkingVotingResult" id="BPMNEdge_checkingVotingResult">
+        <omgdi:waypoint x="495.0" y="592.0"></omgdi:waypoint>
+        <omgdi:waypoint x="540.0" y="593.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="votingResultPassed" id="BPMNEdge_votingResultPassed">
+        <omgdi:waypoint x="560.0" y="613.0"></omgdi:waypoint>
+        <omgdi:waypoint x="560.0" y="648.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="16.0" width="53.0" x="560.0" y="613.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="settingFormValuesForCrLeadApproval" id="BPMNEdge_settingFormValuesForCrLeadApproval">
+        <omgdi:waypoint x="508.0" y="677.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="677.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="788.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="movingAssetAndStatusChange" id="BPMNEdge_movingAssetAndStatusChange">
+        <omgdi:waypoint x="355.0" y="820.0"></omgdi:waypoint>
+        <omgdi:waypoint x="480.0" y="820.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="approvalWorkflowEnds" id="BPMNEdge_approvalWorkflowEnds">
+        <omgdi:waypoint x="585.0" y="820.0"></omgdi:waypoint>
+        <omgdi:waypoint x="630.0" y="820.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="votingResultFailed" id="BPMNEdge_votingResultFailed">
+        <omgdi:waypoint x="580.0" y="593.0"></omgdi:waypoint>
+        <omgdi:waypoint x="700.0" y="597.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="16.0" width="51.0" x="590.0" y="553.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="managerRejectedTheFeedback" id="BPMNEdge_managerRejectedTheFeedback">
+        <omgdi:waypoint x="752.0" y="566.0"></omgdi:waypoint>
+        <omgdi:waypoint x="752.0" y="431.0"></omgdi:waypoint>
+        <omgdi:waypoint x="182.0" y="431.0"></omgdi:waypoint>
+        <omgdi:waypoint x="182.0" y="376.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="escalatingTheSupervisorApprovalToDgTeam" id="BPMNEdge_escalatingTheSupervisorApprovalToDgTeam">
+        <omgdi:waypoint x="165.0" y="391.0"></omgdi:waypoint>
+        <omgdi:waypoint x="162.0" y="440.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="userExpressionUpdatedAndTaskAssignedToDgTeam" id="BPMNEdge_userExpressionUpdatedAndTaskAssignedToDgTeam">
+        <omgdi:waypoint x="162.0" y="440.0"></omgdi:waypoint>
+        <omgdi:waypoint x="110.0" y="407.0"></omgdi:waypoint>
+        <omgdi:waypoint x="182.0" y="376.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="escalatingToDgTeamForCrLeadApproval" id="BPMNEdge_escalatingToDgTeamForCrLeadApproval">
+        <omgdi:waypoint x="315.0" y="870.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="890.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="taskAssignedToDgTeam" id="BPMNEdge_taskAssignedToDgTeam">
+        <omgdi:waypoint x="250.0" y="920.0"></omgdi:waypoint>
+        <omgdi:waypoint x="204.0" y="921.0"></omgdi:waypoint>
+        <omgdi:waypoint x="204.0" y="824.0"></omgdi:waypoint>
+        <omgdi:waypoint x="250.0" y="820.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
