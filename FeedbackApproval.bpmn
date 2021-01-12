@@ -275,8 +275,20 @@ def fileObj= execution.getVariable("attachment")
 
 if(submitButton){
 
-  if(!hospital || !surgeons || !speciality || !productCategory || feedback.toString()==""){
-    execution.setVariable("errormsg","Please fill all the fields")
+  if(!hospital){
+    execution.setVariable("errormsg","Please Choose a Hospital")
+  }
+  else if(!surgeons){
+    execution.setVariable("errormsg","Please Choose a Surgeon")
+  }
+  else if(!speciality){
+    execution.setVariable("errormsg","Please Choose a Speciality")
+  }
+  else if(feedback.toString()==""){
+    execution.setVariable("errormsg","Please provide a valid feedback")
+  }
+  else if(!productCategory){
+    execution.setVariable("errormsg","Please Select the Product Categories")
   }
   else{
 
