@@ -43,8 +43,9 @@
         <activiti:formProperty id="codeSetCodeValuesRelation" name="Code Set to Code Value Relation" type="string" default="Code Value,Code Set,is part of,contains" readable="false" required="true"></activiti:formProperty>
         <activiti:formProperty id="codeListDomainName" name="Code List Domain Name" type="string" default="Codelists" readable="false" required="true"></activiti:formProperty>
         <activiti:formProperty id="productCategoryDomainName" name="Product Category Domain Name" type="string" default="Product Category" readable="false" required="true"></activiti:formProperty>
-        <activiti:formProperty id="startDescription" type="string" default="This usecase captures the feedback from the user" writable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="startDescMsg" type="string" default="Submit your Feedback !!" writable="false"></activiti:formProperty>
         <activiti:formProperty id="continueButton" name="Start" type="button" required="true"></activiti:formProperty>
+        <activiti:formProperty id="roles" name="Provide all the roles involved in this process" type="string" default="Supervisor,Manager,Customer Relationship Lead,DG Team" readable="false"></activiti:formProperty>
       </extensionElements>
     </startEvent>
     <userTask id="submitFeedback" name="Submit Feedback" activiti:candidateUsers="user(${startUser})">
@@ -297,10 +298,16 @@ if(getResponsibilities(temporaryDomainName).size()==0){
   workflowException.setTitleMessage("Responsibilities not assigned");
   throw workflowException
 }
-else if(getResponsibilities(temporaryDomainName).toSet().size()!=4){
-  workflowException = new WorkflowException("Please assign the responsibility for all the Roles Required")
-  workflowException.setTitleMessage("Responsibilities not assigned for all Roles");
-  throw workflowException
+else{
+  def responsibilitiesRolesAssigned=getResponsibilities(temporaryDomainName).toSet()
+  def rolesNotAssigned=utility.toList(roles).minus(responsibilitiesRolesAssigned)
+  if(rolesNotAssigned.size()!=0){
+    def exceptionMessage="Responsibility not assigned to "+utility.toCsv(rolesNotAssigned)+" Roles"
+    workflowException = new WorkflowException(exceptionMessage)
+    loggerApi.info("=-=-=-=-=-=-=-=-"+ exceptionMessage)
+    workflowException.setTitleMessage("Please assign the Responsibility");
+    throw workflowException
+  }
 }
  
 
