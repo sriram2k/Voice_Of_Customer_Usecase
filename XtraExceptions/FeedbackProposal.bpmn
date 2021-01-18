@@ -298,7 +298,7 @@ def getResponsibilities(String resourceName){
  .globalOnly(false)
  .resourceIds([getDomainIdByName(resourceName).get(0).getId()])
  .build()).getResults()*.getRole()*.getName()
-  
+
   return responsibilities
 }
 
@@ -374,6 +374,7 @@ execution.setVariable("productCategoryDomainId",getDomainIdByName(productCategor
 
 def productCategoryAssets = utility.toIdCsv(assetApi.findAssets(builders.get("FindAssetsRequest")
   .domainId(getDomainIdByName(productCategoryDomainName).get(0).getId())
+  .limit(12000)
   .build()).getResults())
 
 execution.setVariable("productCategoryProposedValues",productCategoryAssets)
