@@ -1,0 +1,633 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.collibra.com/apiv2">
+  <collaboration id="Collaboration">
+    <participant id="feedbackProposalPool" name="Feedback Proposal" processRef="feedbackProposal"></participant>
+  </collaboration>
+  <process id="feedbackProposal" name="Feedback Proposal" isExecutable="true">
+    <documentation>This process is used to propose the customer feedback</documentation>
+    <laneSet id="laneSet_feedbackProposal">
+      <lane id="feedbackProposalLane">
+        <flowNodeRef>submitFeedback</flowNodeRef>
+        <flowNodeRef>generateFormValues</flowNodeRef>
+        <flowNodeRef>callApprovalWorkflow</flowNodeRef>
+        <flowNodeRef>formValidation</flowNodeRef>
+        <flowNodeRef>feedbackProposalEnd</flowNodeRef>
+        <flowNodeRef>feedbackProposalFormValidationGateway</flowNodeRef>
+        <flowNodeRef>feedbackProposalStartEvent</flowNodeRef>
+      </lane>
+    </laneSet>
+    <startEvent id="feedbackProposalStartEvent" name="Start" activiti:initiator="startUser">
+      <extensionElements>
+        <activiti:formProperty id="temporaryCommunityName" name="Temporary Community Name" type="string" default="Customer Feedbacks Temp" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="feedbackAssetType" name="Feedback Asset Type" type="string" default="Feedback" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="temporaryDomainName" name="Temporary Domain Name" type="string" default="Feedbacks Temp" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="targetCommunityName" name="Target Community Name" type="string" default="Customer Feedbacks" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="targetDomainName" name="Target Domain Name" type="string" default="Feedbacks" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="codeSets" name="Code Sets" type="string" default="Hospital,Surgeons,Speciality" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="supervisorApprovedStatus" name="Supervisor Approved Status" type="string" default="Supervisor Approved" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="supervisorRejectedStatus" name="Supervisor Rejected Status" type="string" default="Supervisor Rejected" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="managerApprovedStatus" name="Manager Approved Status" type="string" default="Manager Approved" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="managerRejectedStatus" name="Manager Rejected Status" type="string" default="Manager Rejected" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="feedbackBusinessAssetRelation" name="Feedback To Business Asset Relation" type="string" default="Feedback,Business Asset,has,is related to" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="hospitalAttribute" name="Hospital Attribute" type="string" default="Hospital" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="surgeonAttribute" name="Surgeon Attribute" type="string" default="Surgeon" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="specialityAttribute" name="Speciality Attribute" type="string" default="Speciality" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="platformAttribute" name="Platform Attribute" type="string" default="Platform" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="productCategoryAttribute" name="Product Category Attribute" type="string" default="Product Category" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="userFeedbackAttribute" name="User Feedback Attribute" type="string" default="User Feedback" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="customerFeedbackDomainType" name="Customer Feedback Domain Type" type="string" default="Customer Feedbacks" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="inProgressStatus" name="In Progress Status" type="string" default="In Progress" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="approvedStatus" name="Approved Status" type="string" default="Approved" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="rejectedStatus" name="Rejected Status" type="string" default="Rejected" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="codeSetAssetType" name="Code Set Asset Type" type="string" default="Code Set" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="codeSetCodeValuesRelation" name="Code Set to Code Value Relation" type="string" default="Code Value,Code Set,is part of,contains" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="codeListDomainName" name="Code List Domain Name" type="string" default="Codelists" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="productCategoryDomainName" name="Product Category Domain Name" type="string" default="Product Category" readable="false" required="true"></activiti:formProperty>
+        <activiti:formProperty id="startDescMsg" type="string" default="Submit your Feedback !!" writable="false"></activiti:formProperty>
+        <activiti:formProperty id="continueButton" name="Start" type="button" required="true"></activiti:formProperty>
+        <activiti:formProperty id="roles" name="Provide all the roles involved in this process" type="string" default="Supervisor,Manager,Customer Relationship Lead,DG Team" readable="false"></activiti:formProperty>
+      </extensionElements>
+    </startEvent>
+    <userTask id="submitFeedback" name="Submit Feedback" activiti:candidateUsers="user(${startUser})">
+      <extensionElements>
+        <activiti:formProperty id="hospital" name="&lt;span style=&quot;color:red;font-size:14px&quot;&gt;${errormsg}&lt;/span&gt; &lt;br&gt;Choose Hospital" type="dynamicEnum">
+          <activiti:value id="dynamicValuesExpression" name="${hospitalValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="surgeons" name="Choose Surgeon" type="dynamicEnum">
+          <activiti:value id="dynamicValuesExpression" name="${surgeonValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="speciality" name="Choose Speciality" type="dynamicEnum">
+          <activiti:value id="dynamicValuesExpression" name="${specialityValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="feedback" name="Provide Feedback" type="plainText"></activiti:formProperty>
+        <activiti:formProperty id="platform" name="Select Platform (optional)" type="dynamicCheckbox">
+          <activiti:value id="dynamicValuesExpression" name="${platformValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="productCategory" name="Select Product Category" type="asset">
+          <activiti:value id="domainId" name="${productCategoryDomainId}"></activiti:value>
+          <activiti:value id="multiValue" name="True"></activiti:value>
+          <activiti:value id="proposedFixed" name="True"></activiti:value>
+          <activiti:value id="proposedValues" name="${productCategoryProposedValues}"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="attachment" name="Upload Attachment (optional)" type="fileUpload">
+          <activiti:value id="helpText" name="Only selected files are allowed (.docx, .xlsx)"></activiti:value>
+        </activiti:formProperty>
+        <activiti:formProperty id="feedbackTaskButton" name="Submit Feedback" type="taskButton"></activiti:formProperty>
+        <activiti:formProperty id="submitButton" name="Submit" type="button"></activiti:formProperty>
+        <activiti:formProperty id="cancelButton" name="Cancel" type="button"></activiti:formProperty>
+        <activiti:formProperty id="saveButton" name="Save" type="button"></activiti:formProperty>
+      </extensionElements>
+    </userTask>
+    <scriptTask id="formValidation" name="Form Validation" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Form Validation
+Author: Lucid
+Version: 1.0
+Version History: Validates Proposal Form
+Purpose: Validates the proposal form and throws error messages if any.
+*/
+
+import com.collibra.dgc.workflow.api.bean.WorkflowUtility
+import com.collibra.dgc.core.api.dto.MatchMode
+import com.collibra.dgc.core.api.model.ResourceType
+
+
+execution.setVariable("errormsg","")
+
+
+def fileObj= execution.getVariable("attachment")
+
+if(submitButton){
+  if(!hospital){
+    execution.setVariable("errormsg","Please Choose a Hospital")
+  }
+  else if(!surgeons){
+    execution.setVariable("errormsg","Please Choose a Surgeon")
+  }
+  else if(!speciality){
+    execution.setVariable("errormsg","Please Choose a Speciality")
+  }
+  else if(feedback.toString()==""){
+    execution.setVariable("errormsg","Please provide a valid feedback")
+  }
+  else if(!productCategory){
+    execution.setVariable("errormsg","Please Select the Product Categories")
+  }
+  else{
+
+    if(platform){
+      execution.setVariable("platformChoosen","yes")
+    }
+    else{
+     execution.setVariable("platformChoosen","no") 
+    }
+
+    if(fileObj){
+
+    def extension=fileApi.getFileInfo(string2Uuid(fileObj)).getExtension()
+
+    if(extension==".docx" || extension==".xlsx"){
+    execution.setVariable("errormsg","success")  
+    execution.setVariable("attachFile","yes")
+    }
+    else{
+    execution.setVariable("errormsg","Unsupported File Format.Please upload .docx or .xlsx files")
+    loggerApi.info("------------------- in valid file format  ---------------------")  
+    execution.setVariable("attachment",null)
+    }
+  }
+  else{
+    execution.setVariable("errormsg","success")
+    execution.setVariable("attachFile","no")
+  } 
+ } 
+}
+else if(cancelButton){
+  execution.setVariable("errormsg","end")
+}
+else if(saveButton){
+  execution.setVariable("errormsg","Form Saved")
+}
+
+
+]]></script>
+    </scriptTask>
+    <endEvent id="feedbackProposalEnd" name="End"></endEvent>
+    <sequenceFlow id="validateFeedbackForm" sourceRef="submitFeedback" targetRef="formValidation"></sequenceFlow>
+    <scriptTask id="generateFormValues" name="Generate Form Values" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Generate Form Values
+Author: Lucid
+Version: 1.0
+Version History: Validating Pre requisites Exceptions
+Purpose: Setting up dynamic values to the proposal form
+*/
+
+import com.collibra.dgc.workflow.api.bean.WorkflowUtility
+import com.collibra.dgc.core.api.dto.MatchMode
+import com.collibra.dgc.core.api.dto.meta.attributetype.AttributeKind
+import com.collibra.dgc.workflow.api.exception.WorkflowException
+
+execution.setVariable("errormsg","")
+execution.setVariable("savedmsg","")
+
+WorkflowException exception 
+
+def getCommunityIdByName(String name){
+	def communityList = communityApi.findCommunities(builders.get("FindCommunitiesRequest")
+  	.name(name)
+  	.nameMatchMode(MatchMode.EXACT) 
+  	.build()).getResults()
+
+    if(communityList.isEmpty()){
+      def exceptionMessage="'"+ name +"' Community Not found. Kindly check the Community Name."
+      exception = new WorkflowException(exceptionMessage)
+      exception.setTitleMessage("Required Community Not found");
+      throw exception
+    }
+  	return communityList
+}
+
+def getDomainIdByName(String name){
+  def domainList = domainApi.findDomains(builders.get("FindDomainsRequest")
+  .name(name)
+  .nameMatchMode(MatchMode.EXACT) 
+  .build()).getResults()
+  if(domainList.isEmpty()){
+      def exceptionMessage="'"+ name +"' Domain Not found. Kindly check the Domain Name."
+      exception = new WorkflowException(exceptionMessage)
+      exception.setTitleMessage("Required Domain Not found");
+      throw exception
+    }
+  return domainList
+}
+
+def getAssetIdByName(String name,String domainName){
+  def assetList = assetApi.findAssets(builders.get("FindAssetsRequest")
+  .name(name)
+  .nameMatchMode(MatchMode.EXACT) 
+  .domainId(getDomainIdByName(domainName).get(0).getId())
+  .build()).getResults()
+  if(assetList.isEmpty()){
+      def exceptionMessage="'"+ name +"' Asset Not found. Kindly check the Asset Name."
+      exception = new WorkflowException(exceptionMessage)
+      exception.setTitleMessage("Required Asset Not found");
+      throw exception
+    }
+  return assetList
+}
+
+def getRelationTypeIdByName(relationDetails){
+  def relList=relationDetails.split(',')
+  def relationTypeList = relationTypeApi.findRelationTypes(builders.get("FindRelationTypesRequest")
+  .sourceTypeName(relList[0])
+  .targetTypeName(relList[1])
+  .role(relList[2])
+  .coRole(relList[3])
+  .build()).getResults()
+  if(relationTypeList.isEmpty()){
+      def exceptionMessage="'"+ relationDetails +"' Relation Not found. Kindly check the Relation Details {Head,Tail,Role,CoRole}."
+      exception = new WorkflowException(exceptionMessage)
+      exception.setTitleMessage("Required Relation Not found");
+      throw exception
+    }
+  return relationTypeList
+}
+
+def getStatusIdByName(String name){
+	def statusList= statusApi.findStatuses(builders.get("FindStatusesRequest")
+	.name(name)
+    .nameMatchMode(MatchMode.EXACT) 
+    .build()).getResults()
+  if(statusList.isEmpty()){
+      def exceptionMessage="'"+ name +"' Status Not found. Kindly check the Status Name."
+      exception = new WorkflowException(exceptionMessage)
+      exception.setTitleMessage("Required Status Not found");
+      throw exception
+    }
+  return statusList
+}
+
+def getAssetTypeIdByName(String type){
+  def assetTypeList = assetTypeApi.findAssetTypes(builders.get("FindAssetTypesRequest")
+  .name(type)
+  .nameMatchMode(MatchMode.EXACT) 
+  .build()).getResults()
+  if(assetTypeList.isEmpty()){
+      def exceptionMessage="'"+ type +"' Asset Type Not found. Kindly check the Asset Type Name."
+      exception = new WorkflowException(exceptionMessage)
+      exception.setTitleMessage("Required Asset type Not found");
+      throw exception
+    }
+  return assetTypeList
+}
+
+
+def getAttributeTypeIdByName(String type){
+  def attrTypeList = attributeTypeApi.findAttributeTypes(builders.get("FindAttributeTypesRequest")
+  .name(type)
+  .nameMatchMode(MatchMode.EXACT) 
+  .build()).getResults()
+  if(attrTypeList.isEmpty()){
+      def exceptionMessage="'"+ type +"' Atribute Type Not found. Kindly check the Attribute Type Name."
+      exception = new WorkflowException(exceptionMessage)
+      exception.setTitleMessage("Required Attribute type Not found");
+      throw exception
+    }
+  return attrTypeList
+}
+
+def addAttribute(assetId,typeId,value){
+  attributeApi.addAttribute(builders.get("AddAttributeRequest")
+ .assetId(assetId)
+ .typeId(getAttributeTypeIdByName(typeId).get(0).getId())
+ .value(value)
+ .build())  
+}
+
+def addRelation(sourceId,targetId,typeId){
+  relationApi.addRelation(builders.get("AddRelationRequest")
+ .sourceId(sourceId)
+ .targetId(targetId)
+ .typeId(typeId)
+ .build())  
+}
+
+def getResponsibilities(String resourceName){
+  def responsibilities = responsibilityApi.findResponsibilities(builders.get("FindResponsibilitiesRequest")
+ .globalOnly(false)
+ .resourceIds([getDomainIdByName(resourceName).get(0).getId()])
+ .build()).getResults()*.getRole()*.getName()
+
+  return responsibilities
+}
+
+
+WorkflowException workflowException
+
+if(getCommunityIdByName(temporaryCommunityName).size()==0){
+
+	workflowException = new WorkflowException("Couldn't find the temporary community. Check the Temporary Community Name")
+	workflowException.setTitleMessage("Temporary Community Not Found");
+	throw workflowException
+}
+if(getCommunityIdByName(targetCommunityName).size()==0){
+
+	workflowException = new WorkflowException("Couldn't find the target community. Check the Target Community Name")
+	workflowException.setTitleMessage("Target Community Not Found");
+	throw workflowException
+}
+if(getDomainIdByName(temporaryDomainName).size()==0){
+
+	workflowException = new WorkflowException("Couldn't find the temporary Domain. Check the Temporary Domain Name")
+	workflowException.setTitleMessage("Temporary Domain Not Found");
+	throw workflowException
+}
+if(getDomainIdByName(targetDomainName).size()==0){
+
+	workflowException = new WorkflowException("Couldn't find the target Domain. Check the Target Domain Name")
+	workflowException.setTitleMessage("Target Domain Not Found");
+	throw workflowException
+}
+loggerApi.info("============================= "+ getResponsibilities(temporaryDomainName))
+if(getResponsibilities(temporaryDomainName).size()==0){
+  workflowException = new WorkflowException("Please assign the responsibility to domains")
+  workflowException.setTitleMessage("Responsibilities not assigned");
+  throw workflowException
+}
+else{
+  def responsibilitiesRolesAssigned=getResponsibilities(temporaryDomainName).toSet()
+  def rolesNotAssigned=utility.toList(roles).minus(responsibilitiesRolesAssigned)
+  if(rolesNotAssigned.size()!=0){
+    def exceptionMessage="Responsibility not assigned to "+utility.toCsv(rolesNotAssigned)+" Roles"
+    workflowException = new WorkflowException(exceptionMessage)
+    loggerApi.info("=-=-=-=-=-=-=-=-"+ exceptionMessage)
+    workflowException.setTitleMessage("Please assign the Responsibility");
+    throw workflowException
+  }
+}
+ 
+
+
+def codeSetList=utility.toList(codeSets)
+loggerApi.info("--------------- Code Sets : " + codeSetList)
+
+
+def platformAttrList = attributeTypeApi.findAttributeTypes(builders.get("FindAttributeTypesRequest")
+	.name(platformAttribute)
+	.nameMatchMode(MatchMode.EXACT)
+	.kind(AttributeKind.MULTI_VALUE_LIST)  
+  	.build()).getResults()
+
+def platformAllowedValues= platformAttrList.get(0).getAllowedValues()
+
+loggerApi.info("----------------------------- Platform ---------" + platformAllowedValues)
+
+def platformValues= [:]
+
+for(def values: platformAllowedValues){
+	platformValues.put(values.toLowerCase(),values)	
+}
+execution.setVariable("platformValues",platformValues)
+execution.setVariable("productCategoryDomainId",getDomainIdByName(productCategoryDomainName).get(0).getId())
+
+
+def productCategoryAssets = utility.toIdCsv(assetApi.findAssets(builders.get("FindAssetsRequest")
+  .domainId(getDomainIdByName(productCategoryDomainName).get(0).getId())
+  .limit(12000)
+  .build()).getResults())
+
+execution.setVariable("productCategoryProposedValues",productCategoryAssets)
+
+
+loggerApi.info("----------------------------- Hospital values ------------------------------")
+loggerApi.info("========================  "+ getAssetIdByName(codeSetList[0],codeListDomainName).get(0).getId())
+
+def hospitalCodeValues = relationApi.findRelations(builders.get("FindRelationsRequest")
+	.relationTypeId(getRelationTypeIdByName(codeSetCodeValuesRelation).get(0).getId())
+	.targetId(getAssetIdByName(codeSetList[0],codeListDomainName).get(0).getId())
+	.build()).getResults()*.getSource()*.getName()
+loggerApi.info("----------------------------- Hospital values fetched------------------------------")
+def hospitalValues=[:]
+for(def value:hospitalCodeValues){
+	hospitalValues.put(value,value)
+}
+
+def surgeonCodeValues = relationApi.findRelations(builders.get("FindRelationsRequest")
+	.relationTypeId(getRelationTypeIdByName(codeSetCodeValuesRelation).get(0).getId())
+	.targetId(getAssetIdByName(codeSetList[1],codeListDomainName).get(0).getId())
+	.build()).getResults()*.getSource()*.getName()
+
+def surgeonValues=[:]
+for(def value:surgeonCodeValues){
+	surgeonValues.put(value,value)
+}
+
+def specialityCodeValues = relationApi.findRelations(builders.get("FindRelationsRequest")
+	.relationTypeId(getRelationTypeIdByName(codeSetCodeValuesRelation).get(0).getId())
+	.targetId(getAssetIdByName(codeSetList[2],codeListDomainName).get(0).getId())
+	.build()).getResults()*.getSource()*.getName()
+
+def specialityValues=[:]
+for(def value:specialityCodeValues){
+	specialityValues.put(value,value)
+}
+
+execution.setVariable("hospitalValues",hospitalValues)
+execution.setVariable("surgeonValues",surgeonValues)
+execution.setVariable("specialityValues",specialityValues)
+
+loggerApi.info("---------------------------- Code Values Setted Successfully ------------------------------------")
+
+
+
+
+]]></script>
+    </scriptTask>
+    <sequenceFlow id="startToGenerateValues" sourceRef="feedbackProposalStartEvent" targetRef="generateFormValues"></sequenceFlow>
+    <sequenceFlow id="assignedValuesToForm" sourceRef="generateFormValues" targetRef="submitFeedback"></sequenceFlow>
+    <exclusiveGateway id="feedbackProposalFormValidationGateway" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="feedbackFormValidationCheck" sourceRef="formValidation" targetRef="feedbackProposalFormValidationGateway"></sequenceFlow>
+    <sequenceFlow id="validationSuccessful" name="Validation Successful" sourceRef="feedbackProposalFormValidationGateway" targetRef="callApprovalWorkflow">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${errormsg=="success"}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="validationFailed" name="Validation Failed" sourceRef="feedbackProposalFormValidationGateway" targetRef="submitFeedback">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${errormsg!="success" && errormsg!="end"}]]></conditionExpression>
+    </sequenceFlow>
+    <scriptTask id="callApprovalWorkflow" name="Asset Creation and Call Approval Workflow" scriptFormat="groovy" activiti:autoStoreVariables="false">
+      <script><![CDATA[/* 
+Script Name: Asset Creation and Call Approval Workflow
+Author: Lucid
+Version: 1.0
+Version History: Creates Asset and Calls Approval Workflow
+Purpose: Creating Temporary Asset and Adding attributes to the asset and calling the approval workflow
+*/
+
+import com.collibra.dgc.core.api.dto.MatchMode
+import com.collibra.dgc.core.api.model.ResourceType
+import com.collibra.dgc.core.api.model.workflow.WorkflowBusinessItemType
+
+
+
+def assetName="Feedback"+ Long.toString(new Date().getTime())
+
+loggerApi.info("--------------------------------"+ getAssetTypeIdByName(feedbackAssetType))
+
+def temporaryAsset = assetApi.addAsset(builders.get("AddAssetRequest")
+  .name(assetName)
+    .displayName("Customer Feedback")
+    .typeId(getAssetTypeIdByName(feedbackAssetType).get(0).getId())
+    .statusId(getStatusIdByName(inProgressStatus).get(0).getId())
+    .domainId(getDomainIdByName(temporaryDomainName).get(0).getId())
+  .build())
+
+loggerApi.info("---------------------------------- Temporary Asset Created ---------------------------------" )
+
+
+loggerApi.info("------------------- valid file format ---------------------")
+if(execution.getVariable("attachFile")=="yes"){
+  def fileObj= execution.getVariable("attachment")
+  def fileDetails = fileApi.getFileInfo(string2Uuid(fileObj))
+  def fileContents = fileApi.getFileAsStream(string2Uuid(fileObj))
+  def extension=fileDetails.getExtension()
+  def attachment
+attachment = attachmentApi.addAttachment(builders.get("AddAttachmentRequest")
+  .baseResourceId(temporaryAsset.getId())
+  .baseResourceType(ResourceType.Asset)
+  .fileName(fileDetails.getName())
+  .fileStream(fileContents)
+  .build())  
+
+loggerApi.info("---------------------------------------- file attached -----------------")
+}
+
+def productCategoryNames= []
+
+loggerApi.info("------------------------- Adding Product Category Values ------------------------" + productCategory)
+
+for(def product : productCategory){
+  productCategoryNames.add(assetApi.getAsset(product).getName())
+  addRelation(temporaryAsset.getId(),product,
+    getRelationTypeIdByName(feedbackBusinessAssetRelation).get(0).getId())
+}
+
+//loggerApi.info("@@@@@@@@@@@@@@@ " + productCategoryNames)
+productCategoryNameList= utility.toCsv(productCategoryNames)
+
+loggerApi.info("------------------------- Relations Added ------------------------")
+
+def platformSelected = utility.toList(platform)
+
+def platformNameList=[]
+
+addAttribute(temporaryAsset.getId(),hospitalAttribute,hospital)
+addAttribute(temporaryAsset.getId(),surgeonAttribute,surgeons)
+addAttribute(temporaryAsset.getId(),specialityAttribute,speciality)
+addAttribute(temporaryAsset.getId(),userFeedbackAttribute,feedback.toString())
+
+if(execution.getVariable("platformChoosen")=="yes"){
+  loggerApi.info("------------------------- Adding Platform Values ------------------------" + platformSelected)
+  for(String platformValue: platformSelected){
+    platformNameList.add(platformValues[platformValue])
+    addAttribute(temporaryAsset.getId(),platformAttribute,platformValues[platformValue])
+  } 
+}
+
+
+def supervisorUserExpression="{role(Supervisor;"+temporaryCommunityName+";"+temporaryDomainName+")}"
+def managerUserExpression="{role(Manager;"+temporaryCommunityName+";"+temporaryDomainName+")}"
+def dgTeamUserExpression="{role(DG Team;"+temporaryCommunityName+";"+temporaryDomainName+")}"
+def customerRelationshipLeadUserExpression="{role(Customer Relationship Lead;"+temporaryCommunityName+";"+temporaryDomainName+")}"
+
+def approvalFormProperiesMap=["hospital":hospital,"surgeons":surgeons,"speciality":speciality,"feedback":feedback,"productCategory":productCategory,
+    "productCategoryProposedValues":productCategoryProposedValues,"platform":platform,"platformValues":platformValues,"previousComments":"","errormsg":"",
+    "managerRejectedStatus":"Manager Rejected","managerApprovedStatus":"Manager Approved","supervisorRejectedStatus":"Supervisor Rejected",
+    "supervisorApprovedStatus":"Supervisor Approved","hospitalValues":hospitalValues,"surgeonValues":surgeonValues,"specialityValues":
+    specialityValues,"hospitalAttribute":hospitalAttribute,"surgeonAttribute":surgeonAttribute,"specialityAttribute":specialityAttribute,
+    "userFeedbackAttribute":userFeedbackAttribute,"platformAttribute":platformAttribute,"feedbackBusinessAssetRelation":feedbackBusinessAssetRelation,
+    "productCategoryDomainName":productCategoryDomainName,"feedbackAssetType":feedbackAssetType,"inProgressStatus":inProgressStatus,"approvedStatus":approvedStatus,
+    "rejectedStatus":rejectedStatus,"targetDomainName":targetDomainName,"temporaryCommunityName":temporaryCommunityName,
+    "supervisorUserExpression":supervisorUserExpression,"managerUserExpression":managerUserExpression,"customerRelationshipLeadUserExpression":customerRelationshipLeadUserExpression,
+    "dgTeamUserExpression":dgTeamUserExpression]
+
+loggerApi.info("---------------------------Calling the workflow ----------------")
+
+workflowInstanceApi.startWorkflowInstances(builders.get("StartWorkflowInstancesRequest")
+ .workflowDefinitionId(string2Uuid("bbe3f863-ea0e-4674-9c10-9f298557a262"))
+ .addBusinessItemId(getAssetIdByName(temporaryAsset.getName(),temporaryDomainName).get(0).getId())
+ .businessItemType(WorkflowBusinessItemType.ASSET)
+ .formProperties(approvalFormProperiesMap)
+ .build())
+
+loggerApi.info("----------------------------- Next workflow caleed ---------------------")
+
+
+loggerApi.info("----------------- Proposal Workflow Ends -------------------")
+
+
+
+
+]]></script>
+    </scriptTask>
+    <sequenceFlow id="temporaryAssetCreatedAndAttributesAdded" sourceRef="callApprovalWorkflow" targetRef="feedbackProposalEnd"></sequenceFlow>
+    <sequenceFlow id="proposalCancelled" name="Proposal Cancelled" sourceRef="feedbackProposalFormValidationGateway" targetRef="feedbackProposalEnd">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${errormsg=="end"}]]></conditionExpression>
+    </sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Collaboration">
+    <bpmndi:BPMNPlane bpmnElement="Collaboration" id="BPMNPlane_Collaboration">
+      <bpmndi:BPMNShape bpmnElement="feedbackProposalPool" id="BPMNShape_feedbackProposalPool">
+        <omgdc:Bounds height="331.0" width="1321.0" x="50.0" y="68.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="feedbackProposalLane" id="BPMNShape_feedbackProposalLane">
+        <omgdc:Bounds height="331.0" width="1301.0" x="70.0" y="68.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="feedbackProposalStartEvent" id="BPMNShape_feedbackProposalStartEvent">
+        <omgdc:Bounds height="35.0" width="35.0" x="90.0" y="176.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="submitFeedback" id="BPMNShape_submitFeedback">
+        <omgdc:Bounds height="71.0" width="105.0" x="340.0" y="158.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="formValidation" id="BPMNShape_formValidation">
+        <omgdc:Bounds height="66.0" width="105.0" x="510.0" y="161.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="feedbackProposalEnd" id="BPMNShape_feedbackProposalEnd">
+        <omgdc:Bounds height="35.0" width="35.0" x="1070.0" y="176.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="generateFormValues" id="BPMNShape_generateFormValues">
+        <omgdc:Bounds height="66.0" width="105.0" x="190.0" y="161.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="feedbackProposalFormValidationGateway" id="BPMNShape_feedbackProposalFormValidationGateway">
+        <omgdc:Bounds height="40.0" width="40.0" x="670.0" y="173.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callApprovalWorkflow" id="BPMNShape_callApprovalWorkflow">
+        <omgdc:Bounds height="79.0" width="131.0" x="820.0" y="154.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="validateFeedbackForm" id="BPMNEdge_validateFeedbackForm">
+        <omgdi:waypoint x="445.0" y="193.0"></omgdi:waypoint>
+        <omgdi:waypoint x="510.0" y="194.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="startToGenerateValues" id="BPMNEdge_startToGenerateValues">
+        <omgdi:waypoint x="125.0" y="193.0"></omgdi:waypoint>
+        <omgdi:waypoint x="190.0" y="194.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="assignedValuesToForm" id="BPMNEdge_assignedValuesToForm">
+        <omgdi:waypoint x="295.0" y="194.0"></omgdi:waypoint>
+        <omgdi:waypoint x="340.0" y="193.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="feedbackFormValidationCheck" id="BPMNEdge_feedbackFormValidationCheck">
+        <omgdi:waypoint x="615.0" y="194.0"></omgdi:waypoint>
+        <omgdi:waypoint x="670.0" y="193.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="validationSuccessful" id="BPMNEdge_validationSuccessful">
+        <omgdi:waypoint x="710.0" y="193.0"></omgdi:waypoint>
+        <omgdi:waypoint x="820.0" y="193.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="48.0" width="100.0" x="730.0" y="197.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="validationFailed" id="BPMNEdge_validationFailed">
+        <omgdi:waypoint x="690.0" y="213.0"></omgdi:waypoint>
+        <omgdi:waypoint x="690.0" y="336.0"></omgdi:waypoint>
+        <omgdi:waypoint x="392.0" y="336.0"></omgdi:waypoint>
+        <omgdi:waypoint x="392.0" y="229.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="16.0" width="96.0" x="507.0" y="340.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="temporaryAssetCreatedAndAttributesAdded" id="BPMNEdge_temporaryAssetCreatedAndAttributesAdded">
+        <omgdi:waypoint x="951.0" y="193.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1070.0" y="193.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="proposalCancelled" id="BPMNEdge_proposalCancelled">
+        <omgdi:waypoint x="690.0" y="213.0"></omgdi:waypoint>
+        <omgdi:waypoint x="690.0" y="336.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1087.0" y="336.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1087.0" y="211.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="48.0" width="100.0" x="784.0" y="300.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
